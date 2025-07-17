@@ -21,6 +21,7 @@ public:
     virtual bool available();
     virtual void setup();       // Dual Directional Setup
     virtual void process();     // Dual Directional Process
+    virtual void postprocess(bool sent) {}
     virtual void reinit();
     virtual void preprocess();  // Dual Directional Pre-Process (Cheat)
     virtual std::string name() { return DualDirectionalName; }
@@ -38,7 +39,6 @@ private:
     DpadDirection lastGPLR; // Gamepad Last Left-Right
     DpadDirection lastDualUD; // Dual Last Up-Down
     DpadDirection lastDualLR; // Gamepad Last Left-Right
-    DpadMode dpadMode;
     GamepadButtonMapping *mapDpadUp;
     GamepadButtonMapping *mapDpadDown;
     GamepadButtonMapping *mapDpadLeft;

@@ -4,9 +4,11 @@
 #include "BoardConfig.h"
 #include "types.h"
 #include <string.h>
+#include <string>
 
 #include "enums.pb.h"
 #include "gamepad/GamepadState.h"
+#include "gamepad/GamepadAuxState.h"
 
 #include "pico/stdlib.h"
 
@@ -128,15 +130,15 @@ public:
 	inline bool __attribute__((always_inline)) pressedE12()   { return pressedButton(GAMEPAD_MASK_E12); }
 
 	const GamepadOptions& getOptions() const { return options; }
+	const DpadMode getActiveDpadMode() { return activeDpadMode; }
 
 	void setInputMode(InputMode inputMode) { options.inputMode = inputMode; }
 	void setSOCDMode(SOCDMode socdMode) { options.socdMode = socdMode; }
 	void setDpadMode(DpadMode dpadMode) { options.dpadMode = dpadMode; }
 
-	GamepadState rawState;
 	GamepadState state;
 	GamepadState turboState;
-	GamepadRumbleState rumbleState;
+	GamepadAuxState auxState;
 	GamepadButtonMapping *mapDpadUp;
 	GamepadButtonMapping *mapDpadDown;
 	GamepadButtonMapping *mapDpadLeft;
@@ -170,6 +172,22 @@ public:
 	GamepadButtonMapping *mapButtonE11;
 	GamepadButtonMapping *mapButtonE12;
 	GamepadButtonMapping *mapButtonFn;
+	GamepadButtonMapping *mapButtonDP;
+	GamepadButtonMapping *mapButtonLS;
+	GamepadButtonMapping *mapButtonRS;
+	GamepadButtonMapping *mapDigitalUp;
+	GamepadButtonMapping *mapDigitalDown;
+	GamepadButtonMapping *mapDigitalLeft;
+	GamepadButtonMapping *mapDigitalRight;
+	GamepadButtonMapping *mapAnalogLSXNeg;
+	GamepadButtonMapping *mapAnalogLSXPos;
+	GamepadButtonMapping *mapAnalogLSYNeg;
+	GamepadButtonMapping *mapAnalogLSYPos;
+	GamepadButtonMapping *mapAnalogRSXNeg;
+	GamepadButtonMapping *mapAnalogRSXPos;
+	GamepadButtonMapping *mapAnalogRSYNeg;
+	GamepadButtonMapping *mapAnalogRSYPos;
+	GamepadButtonMapping *map48WayMode;
 
 	// gamepad specific proxy of debounced buttons --- 1 = active (inverse of the raw GPIO)
 	// see GP2040::debounceGpioGetAll for details
@@ -181,7 +199,6 @@ public:
 	inline static const SOCDMode resolveSOCDMode(const GamepadOptions& options) {
 		return (options.socdMode == SOCD_MODE_BYPASS &&
 				(options.inputMode == INPUT_MODE_PS3 ||
-				 options.inputMode == INPUT_MODE_GENERIC ||
 				options.inputMode == INPUT_MODE_SWITCH ||
 				options.inputMode == INPUT_MODE_NEOGEO ||
 				options.inputMode == INPUT_MODE_PS4)) ?
@@ -195,8 +212,11 @@ private:
 	void processHotkeyAction(GamepadHotkey action);
 
 	GamepadOptions & options;
+	DpadMode activeDpadMode;
+	bool map48WayModeToggle;
 	const HotkeyOptions & hotkeyOptions;
 
+	HotkeyEntry hotkeys[16];
 	GamepadHotkey lastAction = HOTKEY_NONE;
 };
 

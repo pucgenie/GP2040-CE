@@ -30,7 +30,7 @@ export default {
 		'first-win': 'Primeira Vitória',
 		off: 'Desativado',
 	},
-	'profile-number-label': 'Número de Perfil',
+	'profile-label': 'Perfil',
 	'hotkey-settings-label': 'Configurações de Teclas de Atalho',
 	'hotkey-settings-sub-header':
 		'O controle deslizante <strong>Fn</strong> fornece um botão de função mapeável na página de <link_pinmap>Mapeamento de Pinos</link_pinmap>. Ao selecionar a opção de controle deslizante <strong>Fn</strong>, o botão de função deve ser mantido junto com as configurações de teclas de atalho selecionadas.<br />Além disso, selecione <strong>Nenhum</strong> no menu suspenso para desatribuir qualquer botão.',
@@ -71,6 +71,8 @@ export default {
 		'load-profile-2': 'Carregar Perfil #2',
 		'load-profile-3': 'Carregar Perfil #3',
 		'load-profile-4': 'Carregar Perfil #4',
+		'load-profile-5': 'Carregar Perfil #5',
+		'load-profile-6': 'Carregar Perfil #6',
 		'next-profile': 'Próximo Perfil',
 		'reboot-default': 'Reiniciar GP2040-CE',
 	},

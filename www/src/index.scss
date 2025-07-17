@@ -1,21 +1,31 @@
+$gp-primary: #ec008c;
+
 // Override default variables before the import
 $primary: #495057;
 $danger: #7b2d26;
+
+$body-color-dark: #e3e3e3;
+$body-bg-dark: #1b1b1d;
+
+$navbar-light-hover-color: $gp-primary;
+$navbar-light-active-color: $gp-primary;
+
 $enable-cssgrid: true;
 
 @import "~bootstrap/scss/bootstrap";
 
-:root {
-	--bs-primary-rgb: 20, 23, 30;
+* {
+	font-size: 16px;
 }
 
 body {
+	margin: 0;
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
 		"Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
 		sans-serif;
-	min-width: 880px;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
-
 h1 {
 	font-size: 1.5rem;
 }

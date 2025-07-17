@@ -92,6 +92,7 @@ using namespace std;
 
 /**
  * @brief AUX defines --- gamepad state that doesn't translate to an output button/dpad/etc.
+ * If you want to have requre the Function button for a hotkey in a board config, use `#define HOTKEY_0X_AUX_MASK 32768`
  */
 #define AUX_MASK_FUNCTION	(1U << 15)
 
@@ -133,19 +134,10 @@ const uint32_t buttonMasks[] =
 	GAMEPAD_MASK_E12,
 };
 
-struct GamepadRumbleState
-{
-	// XInput General Motors
-	uint8_t leftMotor {0};
-	uint8_t rightMotor {0};
-	// GameInput Trigger Motors (XBOne)
-	uint8_t leftTrigger {0};
-	uint8_t rightTrigger {0};
-};
-
 struct GamepadState
 {
 	uint8_t dpad {0};
+	uint8_t dpadOriginal {0};
 	uint32_t buttons {0};
 	uint16_t aux {0};
 	uint16_t lx {GAMEPAD_JOYSTICK_MID};
@@ -154,6 +146,10 @@ struct GamepadState
 	uint16_t ry {GAMEPAD_JOYSTICK_MID};
 	uint8_t lt {0};
 	uint8_t rt {0};
+	float ema_1_x {GAMEPAD_JOYSTICK_MID};
+	float ema_1_y {GAMEPAD_JOYSTICK_MID};
+	float ema_2_x {GAMEPAD_JOYSTICK_MID};
+	float ema_2_y {GAMEPAD_JOYSTICK_MID};
 };
 
 // Convert the horizontal GamepadState dpad axis value into an analog value

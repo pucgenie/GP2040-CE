@@ -2,12 +2,10 @@
 #define _Analog_H
 
 #include "gpaddon.h"
-
 #include "GamepadEnums.h"
-
 #include "BoardConfig.h"
-
 #include "enums.pb.h"
+#include "types.h"
 
 #ifndef ANALOG_INPUT_ENABLED
 #define ANALOG_INPUT_ENABLED 0
@@ -49,38 +47,105 @@
 #define FORCED_CIRCULARITY_ENABLED 0
 #endif
 
+#ifndef FORCED_CIRCULARITY2_ENABLED
+#define FORCED_CIRCULARITY2_ENABLED 0
+#endif
+
 #ifndef DEFAULT_INNER_DEADZONE
 #define DEFAULT_INNER_DEADZONE 5
+#endif
+
+#ifndef DEFAULT_INNER_DEADZONE2
+#define DEFAULT_INNER_DEADZONE2 5
 #endif
 
 #ifndef DEFAULT_OUTER_DEADZONE
 #define DEFAULT_OUTER_DEADZONE 95
 #endif
 
+#ifndef DEFAULT_OUTER_DEADZONE2
+#define DEFAULT_OUTER_DEADZONE2 95
+#endif
+
 #ifndef AUTO_CALIBRATE_ENABLED
 #define AUTO_CALIBRATE_ENABLED 0
+#endif
+
+#ifndef AUTO_CALIBRATE2_ENABLED
+#define AUTO_CALIBRATE2_ENABLED 0
+#endif
+
+#ifndef ANALOG_SMOOTHING_ENABLED
+#define ANALOG_SMOOTHING_ENABLED 0
+#endif
+
+#ifndef ANALOG_SMOOTHING2_ENABLED
+#define ANALOG_SMOOTHING2_ENABLED 0
+#endif
+
+#ifndef SMOOTHING_FACTOR
+#define SMOOTHING_FACTOR 5
+#endif
+
+#ifndef SMOOTHING_FACTOR2
+#define SMOOTHING_FACTOR2 5
+#endif
+
+#ifndef ANALOG_ERROR
+#define ANALOG_ERROR 1000
+#endif
+
+#ifndef ANALOG_ERROR2
+#define ANALOG_ERROR2 1000
 #endif
 
 // Analog Module Name
 #define AnalogName "Analog"
 
+#define ADC_COUNT 2
+
+typedef struct
+{
+    Pin_t x_pin;
+    Pin_t y_pin;
+    Pin_t x_pin_adc;
+    Pin_t y_pin_adc;
+    float x_value;
+    float y_value;
+    uint16_t x_center;
+    uint16_t y_center;
+    float xy_magnitude;
+    float x_magnitude;
+    float y_magnitude;
+    InvertMode analog_invert;
+    DpadMode analog_dpad;
+    float x_ema;
+    float y_ema;
+    bool ema_option;
+    float ema_smoothing;
+    float error_rate;
+    float in_deadzone;
+    float out_deadzone;
+    bool auto_calibration;
+    bool forced_circularity;
+} adc_instance;
+
 class AnalogInput : public GPAddon {
 public:
-	virtual bool available();
-	virtual void setup();       // Analog Setup
-	virtual void process();     // Analog Process
-	virtual void preprocess() {}
+    virtual bool available();
+    virtual void setup();       // Analog Setup
+    virtual void process();     // Analog Process
+    virtual void preprocess() {}
+    virtual void postprocess(bool sent) {}
+    virtual void reinit() {}
     virtual std::string name() { return AnalogName; }
 private:
-	uint16_t adc_1_x_center = 0;
-	uint16_t adc_1_y_center = 0;
-	uint16_t adc_2_x_center = 0;
-	uint16_t adc_2_y_center = 0;
-
-	static float readPin(int pin, uint16_t center, bool autoCalibrate);
-	static uint16_t map(uint16_t x, uint16_t in_min, uint16_t in_max, uint16_t out_min, uint16_t out_max);
-	static float magnitudeCalculation(float x, float y, float& x_magnitude, float& y_magnitude);
-	static void radialDeadzone(float& x, float& y, float in_deadzone, float out_deadzone, float x_magnitude, float y_magnitude, float magnitude, bool circularity);
+    float readPin(int stick_num, Pin_t pin, uint16_t center);
+    float emaCalculation(int stick_num, float ema_value, float ema_previous);
+    uint16_t map(uint16_t x, uint16_t in_min, uint16_t in_max, uint16_t out_min, uint16_t out_max);
+    float magnitudeCalculation(int stick_num, adc_instance & adc_inst);
+    void radialDeadzone(int stick_num, adc_instance & adc_inst);
+    adc_instance adc_pairs[ADC_COUNT];
 };
 
 #endif  // _Analog_H_

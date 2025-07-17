@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useState } from 'react';
+import { createContext, useEffect, useState } from 'react';
 import * as yup from 'yup';
 
 import WebApi, { basePeripheralMapping } from '../Services/WebApi';
@@ -13,6 +13,12 @@ let checkExpansionPins = null;
 yup.addMethod(yup.string, 'validateColor', function () {
 	return this.test('', 'Valid hex color required', (value) =>
 		value?.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i),
+	);
+});
+
+yup.addMethod(yup.string, 'validateUSBHexID', function () {
+	return this.test('', 'Valid USB hex ID required', (value) =>
+		value?.match(/^([0-9a-f]{4})$/i),
 	);
 });
 
@@ -182,7 +188,6 @@ export const AppContextProvider = ({ children, ...props }) => {
 		basePeripheralMapping,
 	);
 	const [expansionPins, setExpansionPins] = useState({});
-	const [availableAddons, setAvailableAddons] = useState({});
 
 	const updateUsedPins = async () => {
 		const data = await WebApi.getUsedPins(setLoading);
@@ -268,23 +273,6 @@ export const AppContextProvider = ({ children, ...props }) => {
 
 	useEffect(() => {}, [availablePeripherals, setAvailablePeripherals]);
 
-	useEffect(() => {
-		async function fetchData() {
-			const data = await WebApi.getAddonsOptions(setLoading);
-			setAvailableAddons(data);
-		}
-		fetchData();
-	}, []);
-
-	const updateAddons = async () => {
-		const data = await WebApi.getAddonsOptions(setLoading);
-		setAvailableAddons(data);
-	};
-
-	const getAvailableAddons = () => {
-		return availableAddons;
-	};
-
 	const [savedColorScheme, _setSavedColorScheme] = useState(
 		localStorage.getItem('savedColorScheme') || 'auto',
 	);
@@ -317,8 +305,6 @@ export const AppContextProvider = ({ children, ...props }) => {
 				availablePeripherals,
 				getAvailablePeripherals,
 				expansionPins,
-				getAvailableAddons,
-				updateAddons,
 				getSelectedPeripheral,
 				setButtonLabels,
 				setGradientNormalColor1,

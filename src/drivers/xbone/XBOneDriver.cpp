@@ -3,6 +3,7 @@
 
 #include "drivers/xbone/XBOneAuth.h"
 #include "peripheralmanager.h"
+#include "storagemanager.h"
 
 #define XBONE_KEEPALIVE_TIMER 15000
 
@@ -30,10 +31,11 @@ typedef enum {
     WAIT_DESCRIPTOR_REQUEST,
     SEND_DESCRIPTOR,
     SETUP_AUTH,
-    AUTH_DONE
+    AUTH_DONE,
+    NOT_READY
 } XboxOneDriverState;
 
-static XboxOneDriverState xboneDriverState;
+static XboxOneDriverState xboneDriverState = NOT_READY;
 
 static uint8_t xb1_guide_on[] = { 0x01, 0x5b };
 static uint8_t xb1_guide_off[] = { 0x00, 0x5b };
@@ -87,6 +89,8 @@ static bool waiting_ack = false;
 static uint32_t waiting_ack_timeout=0;
 static uint32_t timer_wait_for_announce;
 static bool xbox_one_powered_on;
+static uint8_t report_led_mode;
+static uint8_t report_led_brightness;
 
 // Report Queue for big report sizes from dongle
 #include <queue>
@@ -147,6 +151,7 @@ static void xbone_reset(uint8_t rhport) {
     (void)rhport;
     timer_wait_for_announce = to_ms_since_boot(get_absolute_time());
     xbox_one_powered_on = false;
+    report_led_mode = 0; // 0 = OFF
     while(!report_queue.empty())
         report_queue.pop();
 
@@ -271,8 +276,23 @@ bool xbone_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result,
             outgoingXGIP->setAttributes(GIP_DEVICE_DESCRIPTOR, incomingXGIP->getSequence(), 1, 1, 0);
             outgoingXGIP->setData(xboxOneDescriptor, sizeof(xboxOneDescriptor));
             xboneDriverState = XboxOneDriverState::SEND_DESCRIPTOR;
-        } else if ( command == GIP_POWER_MODE_DEVICE_CONFIG || command == GIP_CMD_WAKEUP || command == GIP_CMD_RUMBLE ) {
+        } else if ( command == GIP_POWER_MODE_DEVICE_CONFIG ) {
+            // Power Mode On!
             xbox_one_powered_on = true;
+        } else if ( command == GIP_CMD_LED_ON ) {
+            // Set all player LEDs to on
+            report_led_mode = incomingXGIP->getData()[1]; // 1 - turn LEDs on
+            report_led_brightness = incomingXGIP->getData()[2]; // 2 - brightness (ignored for now)
+
+            // Send our descriptor if descriptor is waiting (Player 2)
+            if ( xboneDriverState == XboxOneDriverState::WAIT_DESCRIPTOR_REQUEST ) {
+                outgoingXGIP->reset(); // reset if anything was in there
+                outgoingXGIP->setAttributes(GIP_DEVICE_DESCRIPTOR, incomingXGIP->getSequence(), 1, 1, 0);
+                outgoingXGIP->setData(xboxOneDescriptor, sizeof(xboxOneDescriptor));
+                xboneDriverState = XboxOneDriverState::SEND_DESCRIPTOR;
+            }
+        } else if ( command == GIP_CMD_RUMBLE ) {
+            // TO-DO
         } else if ( command == GIP_AUTH || command == GIP_FINAL_AUTH) {
             if (incomingXGIP->getDataLength() == 2 && memcmp(incomingXGIP->getData(), authReady, sizeof(authReady))==0 ) {
                 xboxOneAuthData->authCompleted = true;
@@ -282,7 +302,7 @@ bool xbone_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result,
                     (incomingXGIP->getChunked() == false )) {
                 xboxOneAuthData->consoleBuffer.setBuffer(incomingXGIP->getData(), incomingXGIP->getDataLength(),
                     incomingXGIP->getSequence(), incomingXGIP->getCommand());
-                xboxOneAuthData->xboneState = XboxOneState::send_auth_console_to_dongle;
+                xboxOneAuthData->xboneState = GPAuthState::send_auth_console_to_dongle;
                 incomingXGIP->reset();
             }
         }
@@ -339,11 +359,12 @@ void XBOneDriver::initialize() {
     xb1_guide_pressed = false;
     last_report_counter = 0;
 
-
     incomingXGIP = new XGIPProtocol();
     outgoingXGIP = new XGIPProtocol();
 
     xboxOneAuthData = nullptr;
+
+    xbone_led_mode = 0;
 }
 
 
@@ -364,10 +385,10 @@ USBListener * XBOneDriver::get_usb_auth_listener() {
     return nullptr;
 }
 
-void XBOneDriver::process(Gamepad * gamepad, uint8_t * outBuffer) {
+bool XBOneDriver::process(Gamepad * gamepad) {
     // Do nothing if we couldn't setup our auth listener
     if ( xboxOneAuthData == nullptr) {
-        return;
+        return false;
     }
 
     uint16_t xboneReportSize = 0;
@@ -375,13 +396,21 @@ void XBOneDriver::process(Gamepad * gamepad, uint8_t * outBuffer) {
     // Perform update
     this->update();
 
+    // Check if LEDs need to turn on
+    if ( xbone_led_mode != report_led_mode ) {
+        Gamepad * processedGamepad = Storage::getInstance().GetProcessedGamepad();
+        processedGamepad->auxState.playerID.active = true;
+        processedGamepad->auxState.playerID.ledValue = report_led_mode;
+        processedGamepad->auxState.playerID.ledBlinkOn = report_led_brightness;
+    }
+
     // No input until auth is ready
     if ( xboxOneAuthData->authCompleted == false ) {
         GIP_HEADER((&xboneReport), GIP_INPUT_REPORT, false, last_report_counter);
         memcpy((void*)&((uint8_t*)&xboneReport)[4], xboneIdle, sizeof(xboneIdle));
         xboneReportSize = sizeof(XboxOneGamepad_Data_t);
         send_xbone_usb((uint8_t*)&xboneReport, xboneReportSize);
-        return;
+        return true;
     }
 
     uint32_t now = to_ms_since_boot(get_absolute_time());
@@ -400,7 +429,7 @@ void XBOneDriver::process(Gamepad * gamepad, uint8_t * outBuffer) {
             if ( keep_alive_sequence == 0 )
                 keep_alive_sequence = 1;
         }
-        return;
+        return true;
     }
     
     // Virtual Keycode for Guide Button
@@ -431,7 +460,7 @@ void XBOneDriver::process(Gamepad * gamepad, uint8_t * outBuffer) {
             virtual_keycode_sequence = new_sequence;
             xb1_guide_pressed = !xb1_guide_pressed;
         }
-        return;
+        return true;
     }
 
     // Only change xbox one input report if we have different inputs!
@@ -489,9 +518,12 @@ void XBOneDriver::process(Gamepad * gamepad, uint8_t * outBuffer) {
                 if (last_report_counter == 0)
                     last_report_counter = 1;
                 memcpy(last_report, &xboneReport, xboneReportSize);
+                return true;
             }
         }
     }
+    
+    return false;
 }
 
 void XBOneDriver::processAux() {
@@ -623,7 +655,7 @@ void XBOneDriver::update() {
             break;
         case SETUP_AUTH:
             // Received packet from dongle to console / PC
-            if ( xboxOneAuthData->xboneState == XboxOneState::send_auth_dongle_to_console ) {
+            if ( xboxOneAuthData->xboneState == GPAuthState::send_auth_dongle_to_console ) {
                 uint16_t len = xboxOneAuthData->dongleBuffer.length;
                 uint8_t type = xboxOneAuthData->dongleBuffer.type;
                 uint8_t sequence = xboxOneAuthData->dongleBuffer.sequence;
@@ -637,10 +669,10 @@ void XBOneDriver::update() {
             }
             
             // Process auth dongle to console
-            if ( xboxOneAuthData->xboneState == XboxOneState::wait_auth_dongle_to_console ) {
+            if ( xboxOneAuthData->xboneState == GPAuthState::wait_auth_dongle_to_console ) {
                 queue_xbone_report(outgoingXGIP->generatePacket(), outgoingXGIP->getPacketLength());
                 if ( outgoingXGIP->getChunked() == false || outgoingXGIP->endOfChunk() == true ) {
-                    xboxOneAuthData->xboneState = XboxOneState::auth_idle_state;
+                    xboxOneAuthData->xboneState = GPAuthState::auth_idle_state;
                 }
                 if ( outgoingXGIP->getPacketAck() == 1 ) { // ACK can happen at different chunks
                     set_ack_wait();
@@ -648,6 +680,7 @@ void XBOneDriver::update() {
             }
             break;
         case AUTH_DONE:
+        case NOT_READY:
         default:
             break;
     };
